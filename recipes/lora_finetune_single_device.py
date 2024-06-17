@@ -26,6 +26,7 @@ from torchtune.modules.peft.peft_utils import (
     get_merged_lora_ckpt,
     set_trainable_params,
     validate_missing_and_unexpected_for_lora,
+    notify_base_params_loaded,
 )
 from torchtune.recipe_interfaces import FTRecipeInterface
 from tqdm import tqdm
@@ -293,6 +294,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         base_missing, base_unexpected = model.load_state_dict(
             base_model_state_dict, strict=False
         )
+        notify_base_params_loaded(model)
         if lora_weights_state_dict:
             lora_missing, lora_unexpected = model.load_state_dict(
                 lora_weights_state_dict, strict=False
