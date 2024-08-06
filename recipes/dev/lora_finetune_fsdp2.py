@@ -31,7 +31,7 @@ from torchtune.modules.peft.peft_utils import (
     get_adapter_params,
     get_lora_module_names,
     get_merged_lora_ckpt,
-    notify_base_params_loaded,
+    load_dora_magnitudes,
     set_trainable_params,
     validate_missing_and_unexpected_for_lora,
 )
@@ -345,22 +345,20 @@ class LoRAFinetuneRecipeDistributed(FTRecipeInterface):
                     m.lora_a.to_empty(device=lora_device)
                     m.lora_b.to_empty(device=lora_device)
                     m.initialize_parameters()
-                # if isinstance(m, DoRALinear) and not lora_weights_state_dict:
-                #     # dora may not be covered in state dict
-                #     # if finetune for the 1st time
-                #     m.lora_a.to_empty(device=lora_device)
-                #     m.lora_b.to_empty(device=lora_device)
-                #     m.initialize_parameters()
                 # RoPE is not covered in state dict
                 if isinstance(m, modules.RotaryPositionalEmbeddings):
                     m.reset_parameters()
-            # TODO: check for DoRA too
-            if not lora_weights_state_dict:
-                notify_base_params_loaded(model, self._device)
 
         base_missing, base_unexpected = utils.load_from_full_model_state_dict(
             model, base_model_state_dict, self._device, self._is_rank_zero
         )
+        is_dora = False
+        for m in model.modules():
+            if hasattr(m, "initialize_dora_magnitude"):
+                is_dora = True
+                m.initialize_dora_magnitude()
+        if is_dora:
+            load_dora_magnitudes(model)
         validate_missing_and_unexpected_for_lora(
             lora_attn_modules=self._lora_attn_modules,
             apply_lora_to_mlp=self._apply_lora_to_mlp,
@@ -594,7 +592,6 @@ class LoRAFinetuneRecipeDistributed(FTRecipeInterface):
                 input_pos = (
                     input_pos.to(self._device) if input_pos is not None else None
                 )
-
                 logits = self._model(tokens, mask=mask, input_pos=input_pos)
                 # Shift so that tokens < n predict n
                 logits = logits[..., :-1, :].contiguous()

@@ -4,7 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from .lora import DoRALinear, LoRALinear
+from .dora import DoRALinear
+from .lora import LoRALinear
 from .peft_utils import (  # noqa
     AdapterModule,
     disable_adapter,
